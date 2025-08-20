@@ -47,7 +47,7 @@ If you want to build the project yourself, you'll need the following prerequisit
 2.  **Run the build command:**
     (Make sure you run this from a **Developer Command Prompt for Visual Studio**)
     ```bash
-    mvn clean gluonfx:build gluonfx:package
+    mvn clean gluonfx:build
     ```
 
 3.  **Find the output:**
