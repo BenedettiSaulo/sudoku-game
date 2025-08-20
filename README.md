@@ -18,7 +18,7 @@ A classic Sudoku game built with modern Java technologies. This project features
 
 Get the latest version for Windows right here. No installation needed—just unzip and run `sudoku.exe`.
 
-[![Download Sudoku](https://img.shields.io/badge/Download-v1.0.0-blue?style=for-the-badge&logo=windows)](https://github.com/BenedettiSaulo/sudoku-game/archive/refs/tags/v1.0.0.zip)
+[![Download Sudoku](https://img.shields.io/badge/Download-v1.0.0-blue?style=for-the-badge&logo=windows)](https://github.com/BenedettiSaulo/sudoku-game/releases/download/v1.0.0/sudoku.exe)
 
 ## 🛠️ Built With
 
