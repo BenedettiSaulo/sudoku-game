@@ -40,8 +40,8 @@ If you want to build the project yourself, you'll need the following prerequisit
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/YourUsername/YourRepo.git](https://github.com/YourUsername/YourRepo.git)
-    cd YourRepo
+    git clone [https://github.com/BenedettiSaulo/sudoku-game.git](https://github.com/BenedettiSaulo/sudoku-game.git)
+    cd sudoku-game
     ```
 
 2.  **Run the build command:**
