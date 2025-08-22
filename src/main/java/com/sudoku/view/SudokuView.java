@@ -1,6 +1,5 @@
 package com.sudoku.view;
 
-import com.sudoku.model.SudokuBoard;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -21,7 +20,6 @@ public class SudokuView {
 	private Button backToMenuButton;
 	private Button restartButton;
 	private ToggleButton themeToggleButton;
-	private ToggleGroup numberToggleGroup;
 	private final List<ToggleButton> numberButtons;
 	private final GridPane[][] subGrids;
 	private Label timeLabel;
@@ -141,12 +139,9 @@ public class SudokuView {
 		numberPad.setHgap(10);
 		numberPad.setVgap(10);
 
-		numberToggleGroup = new ToggleGroup();
-
 		for (int i = 1; i <= size; i++) {
 			ToggleButton numberButton = new ToggleButton(String.valueOf(i));
 			numberButton.getStyleClass().add("number-button");
-			numberButton.setToggleGroup(numberToggleGroup);
 			numberButton.setPrefSize(50, 50);
 			numberButton.setFocusTraversable(false);
 
@@ -164,7 +159,6 @@ public class SudokuView {
 	public Button getUndoButton() { return undoButton; }
 	public Button getClearButton() { return clearButton; }
 	public Button getNewGameButton() { return newGameButton; }
-	public ToggleGroup getNumberToggleGroup() { return numberToggleGroup; }
 	public Button getBackToMenuButton() { return backToMenuButton; }
 	public Button getRestartButton() { return restartButton; }
 	public List<ToggleButton> getNumberButtons() { return numberButtons; }

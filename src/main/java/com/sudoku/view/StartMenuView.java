@@ -11,9 +11,9 @@ import javafx.scene.text.Font;
 
 public class StartMenuView {
 
-	private VBox rootPane;
-	private ComboBox<Difficulty> difficultyComboBox;
-	private Button startButton;
+	private final VBox rootPane;
+	private final ComboBox<Difficulty> difficultyComboBox;
+	private final Button startButton;
 
 	public StartMenuView() {
 		rootPane = new VBox(20);

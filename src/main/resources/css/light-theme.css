@@ -1,18 +1,22 @@
 .root {
     -fx-background-color: #f4f4f4;
 }
+
 .label {
     -fx-text-fill: #333333;
 }
+
 .sub-grid {
     -fx-border-color: black;
     -fx-border-width: 1.5px;
 }
+
 .separator *.line {
     -fx-border-style: solid;
     -fx-border-width: 1px;
     -fx-border-color: #c0c0c0;
 }
+
 .sudoku-cell {
     -fx-font-family: "Arial", sans-serif;
     -fx-font-weight: bold;
@@ -23,24 +27,36 @@
     -fx-background-color: white;
     -fx-text-fill: #007bff;
 }
+
+.sudoku-cell:highlighted {
+    -fx-background-color: #cce5ff;
+}
+
 .sudoku-cell-fixed {
     -fx-background-color: #e9ecef;
     -fx-text-fill: #495057;
     -fx-editable: false;
 }
+
 .sudoku-cell:focused {
     -fx-background-color: #dbeaff;
 }
+
 .sudoku-cell-error {
     -fx-background-color: #ffc0cb;
     -fx-text-fill: #a52a2a;
 }
-.sudoku-cell:highlighted {
-    -fx-background-color: #cce5ff;
+
+.sudoku-cell-error:highlighted,
+.sudoku-cell-error:focused {
+    -fx-background-color: #f8d7da;
+    -fx-text-fill: #721c24;
 }
+
 .sub-grid-complete {
     -fx-background-color: #d4edda;
 }
+
 .control-button {
     -fx-font-size: 14px;
     -fx-background-color: #007bff;
@@ -49,9 +65,11 @@
     -fx-border-radius: 5px;
     -fx-background-radius: 5px;
 }
+
 .control-button:hover {
     -fx-background-color: #0056b3;
 }
+
 .number-button {
     -fx-font-size: 18px;
     -fx-background-radius: 8px;
@@ -59,19 +77,23 @@
     -fx-background-color: #f8f9fa;
     -fx-border-color: #dee2e6;
 }
+
 .number-button:selected {
     -fx-background-color: #007bff;
     -fx-text-fill: white;
     -fx-border-color: #0056b3;
 }
+
 .toggle-button {
     -fx-font-size: 12px;
     -fx-background-color: #6c757d;
     -fx-text-fill: white;
 }
+
 .toggle-button:selected {
     -fx-background-color: #5a6268;
 }
+
 .win-dialog {
     -fx-background-color: #f8f9fa;
     -fx-border-color: #198754;
@@ -80,21 +102,26 @@
     -fx-background-radius: 10px;
     -fx-padding: 20px;
 }
+
 .win-dialog .label {
     -fx-text-fill: #333333;
 }
+
 .win-title {
     -fx-font-size: 32px;
     -fx-font-weight: bold;
     -fx-font-family: "Arial Black", sans-serif;
     -fx-text-fill: #198754;
 }
+
 .win-message {
     -fx-font-size: 16px;
 }
+
 .win-dialog .button {
     -fx-background-color: #007bff;
 }
+
 .win-dialog .button:hover {
     -fx-background-color: #0056b3;
 }

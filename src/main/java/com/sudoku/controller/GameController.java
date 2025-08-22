@@ -4,42 +4,37 @@ import com.sudoku.Main;
 import com.sudoku.model.Cell;
 import com.sudoku.model.Difficulty;
 import com.sudoku.model.SudokuBoard;
+import com.sudoku.view.AlertFactory;
 import com.sudoku.view.SudokuView;
 import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.css.PseudoClass;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
+import javafx.scene.effect.Glow;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
 import javafx.util.Duration;
 
 import java.util.Optional;
-import java.util.Stack;
-import java.util.concurrent.TimeUnit;
 
 public class GameController {
+
+	private final UndoManager undoManager;
+	private final GameTimer gameTimer;
+
 	private enum UpdateState { USER_ACTION, UNDO_ACTION, RESET_ACTION }
 	private UpdateState currentState = UpdateState.USER_ACTION;
 
-	private record Move(int row, int col, int oldValue, int newValue) {}
-	private final Stack<Move> moveHistory = new Stack<>();
 	private TextField selectedCellField = null;
 	private Point selectedCellCoords = null;
 
 	private static final PseudoClass HIGHLIGHTED_PSEUDO_CLASS = PseudoClass.getPseudoClass("highlighted");
+	private final boolean[][] subgridCompletionState = new boolean[SudokuBoard.SUBGRID_SIZE][SudokuBoard.SUBGRID_SIZE];
 	private final SudokuBoard board;
 	private final SudokuView view;
 	private final Difficulty difficulty;
-	private long startTime;
-	private Timeline timeline;
 
 	private final Main mainApp;
 
@@ -49,24 +44,11 @@ public class GameController {
 		this.view = view;
 		this.difficulty = difficulty;
 
-		setupTimer();
+		this.undoManager = new UndoManager();
+		this.gameTimer = new GameTimer(view.getTimeLabel());
+
 		addEventHandlers();
 		startNewGame(difficulty);
-	}
-
-	private void setupTimer() {
-		timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-			long elapsedTime = System.currentTimeMillis() - startTime;
-
-			String timeFormatted = String.format("%02d:%02d",
-					TimeUnit.MILLISECONDS.toMinutes(elapsedTime),
-					TimeUnit.MILLISECONDS.toSeconds(elapsedTime) % 60
-			);
-
-			view.getTimeLabel().setText("Time: " + timeFormatted);
-		}));
-
-		timeline.setCycleCount(Timeline.INDEFINITE);
 	}
 
 	private void addEventHandlers() {
@@ -81,7 +63,7 @@ public class GameController {
 			numButton.setOnAction(e -> handleNumpadButton(numButton.getText()));
 		}
 
-		Platform.runLater(() -> {
+		Platform.runLater(() ->
 			view.getRootPane().getScene().focusOwnerProperty().addListener((observable, oldOwner, newOwner) -> {
 				this.selectedCellField = null;
 				this.selectedCellCoords = null;
@@ -95,8 +77,8 @@ public class GameController {
 
 				updateCellHighlighting();
 				updateNumpadState();
-			});
-		});
+			})
+		);
 
 		for (int row = 0; row < SudokuBoard.SIZE; row++) {
 			for (int col = 0; col < SudokuBoard.SIZE; col++) {
@@ -107,18 +89,6 @@ public class GameController {
 				cellField.textProperty().addListener((observable, oldText, newText) -> handleTextChange(finalRow, finalCol, cellField, oldText, newText));
 			}
 		}
-	}
-
-	private boolean isCellOnBoard(TextField textField) {
-		for (int row = 0; row < SudokuBoard.SIZE; row++) {
-			for (int col = 0; col < SudokuBoard.SIZE; col++) {
-				if (view.getCellFields()[row][col] == textField) {
-					return true;
-				}
-			}
-		}
-
-		return false;
 	}
 
 	private void handleTextChange(int row, int col, TextField cellField, String oldText, String newText) {
@@ -133,7 +103,7 @@ public class GameController {
 		int newValueInt = newText.isEmpty() ? 0 : Integer.parseInt(newText);
 
 		if (oldValueInt != newValueInt) {
-			moveHistory.push(new Move(row, col, oldValueInt, newValueInt));
+			undoManager.addMove(row, col, oldValueInt, newValueInt);
 		}
 
 		updateModelFromView();
@@ -145,16 +115,39 @@ public class GameController {
 	}
 
 	private void updateCellHighlighting() {
-		int selectedRow = (selectedCellCoords != null) ? selectedCellCoords.row() : -1;
-		int selectedCol = (selectedCellCoords != null) ? selectedCellCoords.col() : -1;
-		int subgridStartRow = (selectedRow != -1) ? selectedRow - selectedRow % SudokuBoard.SUBGRID_SIZE : -1;
-		int subgridStartCol = (selectedCol != -1) ? selectedCol - selectedCol % SudokuBoard.SUBGRID_SIZE : -1;
+		if (selectedCellField == null) {
+			for (int row = 0; row < SudokuBoard.SIZE; row++) {
+				for (int col = 0; col < SudokuBoard.SIZE; col++) {
+					view.getCellFields()[row][col].pseudoClassStateChanged(HIGHLIGHTED_PSEUDO_CLASS, false);
+				}
+			}
+			return;
+		}
+
+		int selectedRow = selectedCellCoords.row();
+		int selectedCol = selectedCellCoords.col();
+
+		int subgridStartRow = selectedRow - selectedRow % SudokuBoard.SUBGRID_SIZE;
+		int subgridStartCol = selectedCol - selectedCol % SudokuBoard.SUBGRID_SIZE;
+
+		if (board.isSubgridComplete(subgridStartRow, subgridStartCol)) {
+			for (int r = 0; r < SudokuBoard.SIZE; r++) {
+				for (int c = 0; c < SudokuBoard.SIZE; c++) {
+					view.getCellFields()[r][c].pseudoClassStateChanged(HIGHLIGHTED_PSEUDO_CLASS, false);
+				}
+			}
+			return;
+		}
 
 		for (int row = 0; row < SudokuBoard.SIZE; row++) {
 			for (int col = 0; col < SudokuBoard.SIZE; col++) {
-				boolean shouldHighlight = selectedCellCoords != null && (row == selectedRow || col == selectedCol ||
-						(row >= subgridStartRow && row < subgridStartRow + SudokuBoard.SUBGRID_SIZE &&
-								col >= subgridStartCol && col < subgridStartCol + SudokuBoard.SUBGRID_SIZE));
+				boolean highlightRow = (row == selectedRow);
+				boolean highlightCol = (col == selectedCol);
+
+				boolean highlightSubgrid = (row >= subgridStartRow && row < subgridStartRow + SudokuBoard.SUBGRID_SIZE &&
+						col >= subgridStartCol && col < subgridStartCol + SudokuBoard.SUBGRID_SIZE);
+
+				boolean shouldHighlight = highlightRow || highlightCol || highlightSubgrid;
 				view.getCellFields()[row][col].pseudoClassStateChanged(HIGHLIGHTED_PSEUDO_CLASS, shouldHighlight);
 			}
 		}
@@ -164,15 +157,35 @@ public class GameController {
 		for (int subgridRow = 0; subgridRow < SudokuBoard.SUBGRID_SIZE; subgridRow++) {
 			for (int subgridCol = 0; subgridCol < SudokuBoard.SUBGRID_SIZE; subgridCol++) {
 				GridPane subGridPane = view.getSubGrids()[subgridRow][subgridCol];
-
 				int startRow = subgridRow * SudokuBoard.SUBGRID_SIZE;
 				int startCol = subgridCol * SudokuBoard.SUBGRID_SIZE;
 
-				if (board.isSubgridComplete(startRow, startCol)) {
-					subGridPane.getStyleClass().add("sub-grid-complete");
+				boolean isNowComplete = board.isSubgridComplete(startRow, startCol);
+				boolean wasAlreadyComplete = subgridCompletionState[subgridRow][subgridCol];
+
+				if (isNowComplete && !wasAlreadyComplete) {
+					Glow glow = new Glow();
+					subGridPane.setEffect(glow);
+
+					Timeline timeline = new Timeline(
+							new KeyFrame(Duration.ZERO, new KeyValue(glow.levelProperty(), 0.0)),
+							new KeyFrame(Duration.millis(500), new KeyValue(glow.levelProperty(), 0.7)),
+							new KeyFrame(Duration.millis(1500), new KeyValue(glow.levelProperty(), 0.0))
+					);
+
+					timeline.setOnFinished(e -> subGridPane.setEffect(null));
+					timeline.play();
+				}
+
+				if (isNowComplete) {
+					if (!subGridPane.getStyleClass().contains("sub-grid-complete")) {
+						subGridPane.getStyleClass().add("sub-grid-complete");
+					}
 				} else {
 					subGridPane.getStyleClass().remove("sub-grid-complete");
 				}
+
+				subgridCompletionState[subgridRow][subgridCol] = isNowComplete;
 			}
 		}
 	}
@@ -195,13 +208,10 @@ public class GameController {
 		currentState = UpdateState.RESET_ACTION;
 
 		clearAllViewAndState();
-		this.startTime = System.currentTimeMillis();
+		resetSubgridCompletionState();
 
-		if (timeline != null) {
-			timeline.stop();
-		}
-
-		timeline.play();
+		gameTimer.reset();
+		gameTimer.start();
 
 		board.generateNewBoard(difficulty);
 		updateViewFromModel();
@@ -229,8 +239,10 @@ public class GameController {
 		currentState = UpdateState.RESET_ACTION;
 		board.clearUserNumbers();
 		updateViewFromModel();
-		this.startTime = System.currentTimeMillis();
-		this.moveHistory.clear();
+		resetSubgridCompletionState();
+		gameTimer.reset();
+		gameTimer.start();
+		undoManager.clearHistory();
 		updateNumpadState();
 		board.validateBoard();
 		updateErrorHighlightingInView();
@@ -238,8 +250,7 @@ public class GameController {
 	}
 
 	private void handleUndoButton() {
-		if (!moveHistory.isEmpty()) {
-			Move lastMove = moveHistory.pop();
+		undoManager.undoLastMove().ifPresent(lastMove -> {
 			currentState = UpdateState.UNDO_ACTION;
 			TextField cellToUndo = view.getCellFields()[lastMove.row()][lastMove.col()];
 			String previousValue = lastMove.oldValue() == 0 ? "" : String.valueOf(lastMove.oldValue());
@@ -248,7 +259,7 @@ public class GameController {
 			updateModelFromView();
 			board.validateBoard();
 			updateErrorHighlightingInView();
-		}
+		});
 	}
 
 	private void handleClearButton() {
@@ -259,107 +270,39 @@ public class GameController {
 	}
 
 	private void handleBackToMenuButton() {
-		timeline.stop();
+		gameTimer.stop();
 		mainApp.showStartMenu();
 	}
 
 	private void handleThemeToggle() {
 		ToggleButton toggleButton = view.getThemeToggleButton();
 
-		Scene scene = view.getRootPane().getScene();
-		scene.getStylesheets().clear();
+		ThemeManager themeManager = new ThemeManager(view.getRootPane().getScene());
 
 		if (toggleButton.isSelected()) {
-			scene.getStylesheets().add(getClass().getResource("/css/dark-theme.css").toExternalForm());
+			themeManager.applyDarkTheme();
 			toggleButton.setText("Light Theme");
 		} else {
-			scene.getStylesheets().add(getClass().getResource("/css/light-theme.css").toExternalForm());
+			themeManager.applyLightTheme();
 			toggleButton.setText("Dark Theme");
 		}
 	}
 
 	private void checkWinCondition() {
 		if (board.isBoardSolved()) {
-			showVictoryAlert();
-		}
-	}
+			gameTimer.stop();
+			long durationMillis = gameTimer.getElapsedTimeMillis();
 
-	private void showVictoryAlert() {
-		timeline.stop();
+			Optional<ButtonType> result = AlertFactory.showVictoryAlert(view.getRootPane().getScene(), durationMillis);
 
-		long endTime = System.currentTimeMillis();
-		long durationMillis = endTime - startTime;
-
-		String timeFormatted = String.format("%02d:%02d",
-				TimeUnit.MILLISECONDS.toMinutes(durationMillis),
-				TimeUnit.MILLISECONDS.toSeconds(durationMillis) -
-						TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(durationMillis))
-		);
-
-		Platform.runLater(() -> {
-			Dialog<ButtonType> dialog = new Dialog<>();
-			dialog.initModality(Modality.APPLICATION_MODAL);
-			dialog.setTitle("Congratulations!");
-
-			VBox content = new VBox(15);
-			content.setAlignment(Pos.CENTER);
-
-			try {
-				Image trophyImage = new Image(getClass().getResourceAsStream("/images/trophy.png"));
-				ImageView trophyImageView = new ImageView(trophyImage);
-				trophyImageView.setFitHeight(100);
-				trophyImageView.setFitWidth(100);
-
-				content.getChildren().add(trophyImageView);
-			} catch (Exception e) {
-				System.err.println("Trophy image not found. Please check the path.");
-			}
-
-			Label titleLabel = new Label("You Win!");
-			titleLabel.getStyleClass().add("win-title");
-
-			Label messageLabel = new Label("You solved the puzzle in " + timeFormatted + "!");
-			messageLabel.getStyleClass().add("win-message");
-
-			content.getChildren().addAll(titleLabel, messageLabel);
-
-			DialogPane dialogPane = dialog.getDialogPane();
-			dialogPane.setContent(content);
-			dialogPane.getStyleClass().add("win-dialog");
-
-			Scene scene = view.getRootPane().getScene();
-
-			if (scene != null) {
-				dialogPane.getStylesheets().addAll(scene.getStylesheets());
-			}
-
-			ButtonType newGameButtonType = new ButtonType("New Game (Same Difficulty)");
-			ButtonType mainMenuButtonType = new ButtonType("Main Menu");
-
-			dialog.getDialogPane().getButtonTypes().addAll(newGameButtonType, mainMenuButtonType);
-
-			final Button newGameButton = (Button) dialog.getDialogPane().lookupButton(newGameButtonType);
-			newGameButton.getStyleClass().add("control-button");
-
-			final Button mainMenuButton = (Button) dialog.getDialogPane().lookupButton(mainMenuButtonType);
-			mainMenuButton.getStyleClass().add("control-button");
-
-			Stage stage = (Stage) dialog.getDialogPane().getScene().getWindow();
-			stage.setOnCloseRequest(event -> {
-			});
-
-			Optional<ButtonType> result = dialog.showAndWait();
-
-			if (result.isPresent()) {
-				if (result.get() == newGameButtonType) {
+			result.ifPresent(buttonType -> {
+				if (buttonType.getText().equals("New Game (Same Difficulty)")) {
 					handleNewGameButton();
-				} else if (result.get() == mainMenuButtonType) {
+				} else if (buttonType.getText().equals("Main Menu")) {
 					handleBackToMenuButton();
 				}
-			} else {
-				handleBackToMenuButton();
-			}
-		});
+			});
+		}
 	}
 
 	private void updateViewFromModel() {
@@ -383,7 +326,7 @@ public class GameController {
 					}
 				} else {
 					cellField.clear();
-					cellField.setEditable(true);;
+					cellField.setEditable(true);
 				}
 			}
 		}
@@ -403,7 +346,7 @@ public class GameController {
 	}
 
 	private void clearAllViewAndState() {
-		moveHistory.clear();
+		undoManager.clearHistory();
 		selectedCellField = null;
 
 		for (int row = 0; row < SudokuBoard.SIZE; row++) {
@@ -450,5 +393,13 @@ public class GameController {
 		}
 
 		return Optional.empty();
+	}
+
+	private void resetSubgridCompletionState() {
+		for (int subgridRow = 0; subgridRow < SudokuBoard.SUBGRID_SIZE; subgridRow++) {
+			for (int subgridCol = 0; subgridCol < SudokuBoard.SUBGRID_SIZE; subgridCol++) {
+				subgridCompletionState[subgridRow][subgridCol] = false;
+			}
+		}
 	}
 }

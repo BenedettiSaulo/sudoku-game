@@ -7,7 +7,7 @@ import java.util.List;
 public class SudokuBoard {
 
 	private final Cell[][] board;
-	private int[][] solution;
+	private final int[][] solution;
 	public static final int SIZE = 9;
 	public static final int SUBGRID_SIZE = 3;
 
@@ -126,20 +126,13 @@ public class SudokuBoard {
 	}
 
 	private void pokeHoles(Difficulty difficulty) {
-		int holes = 0;
-		switch (difficulty) {
-			case EASY: holes = 35; break; // 35
-			case MEDIUM: holes = 45; break;
-			case HARD: default: holes = 55; break;
-		}
-
 		List<Integer> indices = new ArrayList<>();
 		for (int i = 0; i < SIZE * SIZE; i++) {
 			indices.add(i);
 		}
 		Collections.shuffle(indices);
 
-		for (int i = 0; i < holes; i++) {
+		for (int i = 0; i < difficulty.getHolesToPoke(); i++) {
 			int index = indices.get(i);
 			board[index / SIZE][index % SIZE].setValue(0);
 		}
@@ -186,7 +179,6 @@ public class SudokuBoard {
 				}
 			}
 		}
-
 		return true;
 	}
 }
